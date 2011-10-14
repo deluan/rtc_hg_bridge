@@ -1,0 +1,177 @@
+#!/usr/bin/env groovy
+
+/**
+ * User: Deluan
+ * Date: 14/10/11
+ */
+
+class Shell {
+
+    static currentDir = "."
+
+    static chDir(newDir) {
+        currentDir = newDir
+    }
+
+    static sh(commandLine) {
+        def ant = new AntBuilder()
+        def executable = commandLine.split(" ")[0]
+        def args = commandLine.substring(executable.length())
+
+        println "EXEC: ${executable} $args"
+
+        ant.exec(dir: currentDir,
+                outputproperty: "cmdOut",
+                errorproperty: "cmdErr",
+                resultproperty: "cmdExit",
+                failonerror: "true",
+                executable: executable) {
+            arg(line: args)
+        }
+
+        def exitValue = ant.project.properties.cmdExit
+        def stdout = ant.project.properties.cmdOut
+        def stderr = ant.project.properties.cmdErr
+
+        if (exitValue?.toInteger()) {
+            println "stderr: ${stderr}"
+            println "exitValue: ${exitValue}"
+            System.exit(exitValue.toInteger())
+        }
+
+        return stdout
+    }
+}
+
+class Bridge {
+    HG hg
+    RTC rtc
+    String directory
+
+    public Bridge(Map options) {
+        rtc = new RTC(options.rtc)
+        hg = new HG(options.hg)
+        directory = options.directory
+    }
+
+    public init() {
+        new File(directory).deleteDir()
+        new File(directory).mkdirs()
+        Shell.chDir directory
+
+        rtc.makeWorkingCopy()
+        hg.initializeWorkingCopy()
+        hg.commitChanges("Initial bridge checkin")
+        hg.pushCommits()
+    }
+
+    public run() {
+        Shell.chDir directory
+
+        rtc.getLogs().each { log ->
+            rtc.changeWorkingCopyToRevision(log.revision)
+            hg.commitChanges("${log.revision}: ${log.message}", "$log.name <${log.email}>")
+        }
+        hg.pushCommits()
+    }
+}
+
+class HG {
+    final DATE_FORMAT = "yyyy-MM-dd HH:mm:ss"
+
+    String repo
+
+    public initializeWorkingCopy() {
+        Shell.sh "hg init"
+    }
+
+    public commitChanges(String message, String user = 'bridge', Date date = null) {
+        if (!date) {
+            date = new Date()
+        }
+        Shell.sh "hg addremove --quiet --exclude .jazz5 --exclude .metadata"
+        Shell.sh "hg commit -m '${message}' -u'${user}' --date '${date.format(DATE_FORMAT)}'"
+    }
+
+    public pushCommits() {
+        Shell.sh "hg push --quiet ${repo}"
+    }
+}
+
+class RTC {
+    final DATE_FORMAT = "yyyy-MM-dd-HH:mm:ss"
+
+    String repo
+    String stream
+    String workspace
+    String user
+    String password
+
+    public makeWorkingCopy() {
+        Shell.sh "scm create workspace --username '${user}' --password '${password}' --repository-uri '${repo}' --stream '${stream}' '${workspace}'"
+        Shell.sh "scm load '${workspace}' --username '${user}' --password '${password}' --repository-uri '${repo}'"
+    }
+
+    public getLogs() {
+        def logs = []
+        Shell.sh("scm compare ws '${workspace}' stream '${stream}' -u '${user}' -P '${password}' -r '${repo}' -I s -C '|{userid}|{email}|{name}|' -D '|${DATE_FORMAT}|'").eachLine { line ->
+            def parts = line.split("\\|")
+            def log = [:]
+            log.revision = parts[0].trim() - '(' - ')'
+            log.userid = parts[1].trim()
+            log.email = parts[2].trim()
+            log.name = parts[3].trim()
+            log.message = parts[4].trim()
+            log.date = Date.parse(DATE_FORMAT, parts[5].trim())
+            logs << log
+        }
+
+        return logs
+    }
+
+    public changeWorkingCopyToRevision(revision) {
+        Shell.sh "scm accept -u ${user} --password ${password} --changes ${revision}"
+    }
+}
+
+
+// Main program
+def action = null
+def cli = new CliBuilder(usage: 'rtc_hg_bridge [--init | --run] [parameters]')
+cli.with {
+    i longOpt: 'init', 'Initialize the bridge'
+    r longOpt: 'run', 'Run the bridge'
+
+    d longOpt: 'directory', args: 1, argName: 'DIRECTORY', required: true, 'Working directory\n created or emptied on initialization\n do not delete between runs'
+    m longOpt: 'mercurial-repository', args: 1, argName: 'REPOSITORY', required: true, 'URL of Mercurial repository'
+    t longOpt: 'rtc-repository', args: 1, argName: 'REPOSITORY', required: true, 'URL of RTC SCM repository'
+    u longOpt: 'rtc-user', args: 1, argName: 'USER', required: true, 'RTC user name'
+    p longOpt: 'rtc-password', args: 1, argName: 'PASSWORD', required: true, 'RTC user password'
+    w longOpt: 'rtc-workspace', args: 1, argName: 'WORKSPACE', required: true, 'Workspace to use in RTC repository\n created during initialization'
+    s longOpt: 'rtc-stream', args: 1, argName: 'STREAM', required: true, 'Stream to use in RTC repository\n created during initialization'
+    h longOpt: 'help', 'Display this help'
+}
+def options = cli.parse(args)
+
+if (options?.i) action = 'init'
+if (options?.r) action = 'run'
+
+if (!action || options.h) {
+    cli.usage()
+    System.exit(0)
+}
+
+def opts = [directory: options.directory]
+
+opts.rtc = [
+        repo: options.t,
+        user: options.u,
+        password: options.p,
+        workspace: options.w,
+        stream: options.s,
+]
+opts.hg = [
+        repo: options.m,
+]
+
+new Bridge(opts)."${action}"()
