@@ -156,7 +156,11 @@ def options = cli.parse(args)
 if (options?.i) action = 'init'
 if (options?.r) action = 'run'
 
-if (!action || options.h) {
+if (!action) {
+    System.exit(-1)
+}
+
+if (options.h) {
     cli.usage()
     System.exit(0)
 }
