@@ -110,13 +110,15 @@ class RTC {
     String password
 
     public makeWorkingCopy() {
-        Shell.sh "scm create workspace --username '${user}' --password '${password}' --repository-uri '${repo}' --stream '${stream}' '${workspace}'"
+        Shell.sh "scm create workspace --username '${user}' --password '${password}' --repository-uri '${repo}' \
+                    --stream '${stream}' '${workspace}'"
         Shell.sh "scm load '${workspace}' --username '${user}' --password '${password}' --repository-uri '${repo}'"
     }
 
     public getLogs() {
         def logs = []
-        Shell.sh("scm compare ws '${workspace}' stream '${stream}' -u '${user}' -P '${password}' -r '${repo}' -I s -C '|{userid}|{email}|{name}|' -D '|${DATE_FORMAT}|'").eachLine { line ->
+        Shell.sh("scm compare ws '${workspace}' stream '${stream}' -u '${user}' -P '${password}' -r '${repo}' \
+                    -I s -C '|{userid}|{email}|{name}|' -D '|${DATE_FORMAT}|'").eachLine { line ->
             def parts = line.split("\\|")
             def log = [:]
             log.revision = parts[0].trim() - '(' - ')'
@@ -138,19 +140,22 @@ class RTC {
 
 // Main program
 def action = null
-def cli = new CliBuilder(usage: 'rtc_hg_bridge [--init | --run] [parameters]')
+def cli = new CliBuilder(usage: 'rtc_hg_bridge [--init | --run] [parameters]', header: '\nParameters:')
 cli.with {
     i longOpt: 'init', 'Initialize the bridge'
     r longOpt: 'run', 'Run the bridge'
 
-    d longOpt: 'directory', args: 1, argName: 'DIRECTORY', required: true, 'Working directory\n created or emptied on initialization\n do not delete between runs'
-    m longOpt: 'mercurial-repository', args: 1, argName: 'REPOSITORY', 'URL of Mercurial repository\nIf specified, will push changes to it'
+    d longOpt: 'directory', args: 1, argName: 'DIRECTORY', required: true,
+            'Working directory\n created or emptied on initialization\n do not delete between runs'
+    m longOpt: 'mercurial-repository', args: 1, argName: 'REPOSITORY',
+            'URL of Mercurial repository\nIf specified, will push changes to it'
     t longOpt: 'rtc-repository', args: 1, argName: 'REPOSITORY', required: true, 'URL of RTC SCM repository'
     u longOpt: 'rtc-user', args: 1, argName: 'USER', required: true, 'RTC user name'
     p longOpt: 'rtc-password', args: 1, argName: 'PASSWORD', required: true, 'RTC user password'
-    w longOpt: 'rtc-workspace', args: 1, argName: 'WORKSPACE', required: true, 'Workspace to use in RTC repository\n created during initialization'
-    s longOpt: 'rtc-stream', args: 1, argName: 'STREAM', required: true, 'Stream to use in RTC repository\n created during initialization'
-    h longOpt: 'help', 'Display this help'
+    w longOpt: 'rtc-workspace', args: 1, argName: 'WORKSPACE', required: true,
+            'Workspace to use in RTC repository\n created during initialization'
+    s longOpt: 'rtc-stream', args: 1, argName: 'STREAM', required: true,
+            'Stream to use in RTC repository\n created during initialization'
 }
 def options = cli.parse(args)
 
@@ -159,11 +164,6 @@ if (options?.r) action = 'run'
 
 if (!action) {
     System.exit(-1)
-}
-
-if (options.h) {
-    cli.usage()
-    System.exit(0)
 }
 
 def workDirectory = options.directory
