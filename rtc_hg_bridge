@@ -94,7 +94,9 @@ class HG {
     }
 
     public pushCommits() {
-        Shell.sh "hg push --quiet ${repo}"
+        if (repo) {
+            Shell.sh "hg push --quiet ${repo}"
+        }
     }
 }
 
@@ -134,7 +136,6 @@ class RTC {
     }
 }
 
-
 // Main program
 def action = null
 def cli = new CliBuilder(usage: 'rtc_hg_bridge [--init | --run] [parameters]')
@@ -143,7 +144,7 @@ cli.with {
     r longOpt: 'run', 'Run the bridge'
 
     d longOpt: 'directory', args: 1, argName: 'DIRECTORY', required: true, 'Working directory\n created or emptied on initialization\n do not delete between runs'
-    m longOpt: 'mercurial-repository', args: 1, argName: 'REPOSITORY', required: true, 'URL of Mercurial repository'
+    m longOpt: 'mercurial-repository', args: 1, argName: 'REPOSITORY', 'URL of Mercurial repository\nIf specified, will push changes to it'
     t longOpt: 'rtc-repository', args: 1, argName: 'REPOSITORY', required: true, 'URL of RTC SCM repository'
     u longOpt: 'rtc-user', args: 1, argName: 'USER', required: true, 'RTC user name'
     p longOpt: 'rtc-password', args: 1, argName: 'PASSWORD', required: true, 'RTC user password'
@@ -175,7 +176,7 @@ def rtcOptions = [
         stream: options.s,
 ]
 def hgOptions = [
-        repo: options.m,
+        repo: options.m ?: null
 ]
 
 new Bridge(rtcOptions, hgOptions, workDirectory)."${action}"()
