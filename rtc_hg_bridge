@@ -48,10 +48,10 @@ class Bridge {
     RTC rtc
     String directory
 
-    public Bridge(Map options) {
-        rtc = new RTC(options.rtc)
-        hg = new HG(options.hg)
-        directory = options.directory
+    public Bridge(rtcOptions, hgOptions, workDirectory) {
+        rtc = new RTC(rtcOptions)
+        hg = new HG(hgOptions)
+        directory = workDirectory
     }
 
     public init() {
@@ -165,17 +165,17 @@ if (options.h) {
     System.exit(0)
 }
 
-def opts = [directory: options.directory]
+def workDirectory = options.directory
 
-opts.rtc = [
+def rtcOptions = [
         repo: options.t,
         user: options.u,
         password: options.p,
         workspace: options.w,
         stream: options.s,
 ]
-opts.hg = [
+def hgOptions = [
         repo: options.m,
 ]
 
-new Bridge(opts)."${action}"()
+new Bridge(rtcOptions, hgOptions, workDirectory)."${action}"()
