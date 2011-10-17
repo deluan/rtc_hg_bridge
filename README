@@ -20,3 +20,5 @@ Parameters (all but '-m' are mandatory):
  -w,--rtc-workspace <WORKSPACE>           Workspace to use in RTC
                                           repository
                                           created during initialization
+ -v,--verbose                             Verbose mode (show executed
+                                          commands)
