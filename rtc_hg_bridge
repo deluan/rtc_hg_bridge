@@ -8,6 +8,7 @@
 class Shell {
 
     static currentDir = "."
+    static verbose = false
 
     static chDir(newDir) {
         currentDir = newDir
@@ -18,7 +19,7 @@ class Shell {
         def executable = commandLine.split(" ")[0]
         def args = commandLine.substring(executable.length())
 
-        println "EXEC: ${executable} $args"
+        verbose && println("EXEC: ${executable} $args")
 
         ant.exec(dir: currentDir,
                 outputproperty: "cmdOut",
@@ -48,10 +49,11 @@ class Bridge {
     RTC rtc
     String directory
 
-    public Bridge(rtcOptions, hgOptions, workDirectory) {
+    public Bridge(bridgeOpts, rtcOptions, hgOptions) {
         rtc = new RTC(rtcOptions)
         hg = new HG(hgOptions)
-        directory = workDirectory
+        directory = bridgeOpts.workDirectory
+        Shell.verbose = bridgeOpts.verbose
     }
 
     public init() {
@@ -85,7 +87,7 @@ class HG {
         Shell.sh "hg init"
     }
 
-    public commitChanges(String message, String user = 'bridge', Date date = null) {
+    public commitChanges(String message, String user = "bridge", Date date = null) {
         if (!date) {
             date = new Date()
         }
@@ -140,33 +142,37 @@ class RTC {
 
 // Main program
 def action = null
-def cli = new CliBuilder(usage: 'rtc_hg_bridge [--init | --run] [parameters]', header: '\nParameters:')
+def cli = new CliBuilder(usage: "rtc_hg_bridge [--init | --run] [parameters]", header: "\nParameters:")
 cli.with {
-    i longOpt: 'init', 'Initialize the bridge'
-    r longOpt: 'run', 'Run the bridge'
+    i longOpt: "init", "Initialize the bridge"
+    r longOpt: "run", "Run the bridge"
 
-    d longOpt: 'directory', args: 1, argName: 'DIRECTORY', required: true,
-            'Working directory\n created or emptied on initialization\n do not delete between runs'
-    m longOpt: 'mercurial-repository', args: 1, argName: 'REPOSITORY',
-            'URL of Mercurial repository\nIf specified, will push changes to it'
-    t longOpt: 'rtc-repository', args: 1, argName: 'REPOSITORY', required: true, 'URL of RTC SCM repository'
-    u longOpt: 'rtc-user', args: 1, argName: 'USER', required: true, 'RTC user name'
-    p longOpt: 'rtc-password', args: 1, argName: 'PASSWORD', required: true, 'RTC user password'
-    w longOpt: 'rtc-workspace', args: 1, argName: 'WORKSPACE', required: true,
-            'Workspace to use in RTC repository\n created during initialization'
-    s longOpt: 'rtc-stream', args: 1, argName: 'STREAM', required: true,
-            'Stream to use in RTC repository\n created during initialization'
+    d longOpt: "directory", args: 1, argName: "DIRECTORY", required: true,
+            "Working directory\n created or emptied on initialization\n do not delete between runs"
+    m longOpt: "mercurial-repository", args: 1, argName: "REPOSITORY",
+            "URL of Mercurial repository\nIf specified, will push changes to it"
+    t longOpt: "rtc-repository", args: 1, argName: "REPOSITORY", required: true, "URL of RTC SCM repository"
+    u longOpt: "rtc-user", args: 1, argName: "USER", required: true, "RTC user name"
+    p longOpt: "rtc-password", args: 1, argName: "PASSWORD", required: true, "RTC user password"
+    w longOpt: "rtc-workspace", args: 1, argName: "WORKSPACE", required: true,
+            "Workspace to use in RTC repository\n created during initialization"
+    s longOpt: "rtc-stream", args: 1, argName: "STREAM", required: true,
+            "Stream to use in RTC repository\n created during initialization"
+    v longOpt: "verbose", "Verbose mode (show executed commands)"
 }
 def options = cli.parse(args)
 
-if (options?.i) action = 'init'
-if (options?.r) action = 'run'
+if (options?.i) action = "init"
+if (options?.r) action = "run"
 
 if (!action) {
     System.exit(-1)
 }
 
-def workDirectory = options.directory
+def bridgeOpts = [
+        workDirectory: options.directory,
+        verbose: options.verbose,
+]
 
 def rtcOptions = [
         repo: options.t,
@@ -179,4 +185,4 @@ def hgOptions = [
         repo: options.m ?: null
 ]
 
-new Bridge(rtcOptions, hgOptions, workDirectory)."${action}"()
+new Bridge(bridgeOpts, rtcOptions, hgOptions)."${action}"()
