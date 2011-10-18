@@ -1,8 +1,9 @@
 #!/usr/bin/env groovy
 
 /**
- * User: Deluan
- * Date: 14/10/11
+ * Project home: http://github.com/deluan/rtc_hg_bridge
+ *
+ * @author Deluan
  */
 
 class Shell {
@@ -142,7 +143,8 @@ class RTC {
 
 // Main program
 def action = null
-def cli = new CliBuilder(usage: "rtc_hg_bridge [--init | --run] [parameters]", header: "\nParameters:")
+def cli = new CliBuilder(usage: "rtc_hg_bridge [--init | --run] [parameters]", header: "\nParameters:",
+        footer: "\nProject home: http://github.com/deluan/rtc_hg_bridge")
 cli.with {
     i longOpt: "init", "Initialize the bridge"
     r longOpt: "run", "Run the bridge"
